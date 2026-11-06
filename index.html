@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON2RTID</title>
+    <style>
+        /* Темная тема для всей страницы */
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 60px auto 40px auto; 
+            padding: 20px; 
+            background-color: #121214; 
+            color: #e1e1e6; 
+            line-height: 1.5; 
+        }
+        
+        /* Круглая кнопка Telegram */
+        .tg-button { 
+            position: fixed; 
+            top: 20px; 
+            left: 20px; 
+            width: 44px; 
+            height: 44px; 
+            background-color: #202024; 
+            border-radius: 50%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); 
+            transition: all 0.2s ease; 
+            z-index: 1000; 
+        }
+        .tg-button:hover { 
+            background-color: #24A1DE; 
+            transform: scale(1.08); 
+            box-shadow: 0 4px 16px rgba(36, 161, 222, 0.4); 
+        }
+        .tg-button svg { 
+            width: 22px; 
+            height: 22px; 
+            fill: #24A1DE; 
+            transition: fill 0.2s ease; 
+            margin-left: -2px; 
+        }
+        .tg-button:hover svg { 
+            fill: #ffffff; 
+        }
+
+        h2 { color: #ffffff; margin-top: 0; }
+        p { color: #a6a6b8; }
+        strong { color: #ffffff; }
+
+        /* Область загрузки в темных тонах с ровными краями и прозрачностью */
+        .upload-area { 
+            border: 2px solid #2f3846; 
+            border-radius: 8px; 
+            padding: 40px 20px; 
+            text-align: center; 
+            cursor: pointer; 
+            background: rgba(26, 26, 30, 0.6); 
+            backdrop-filter: blur(4px);
+            transition: all 0.2s ease; 
+            margin-top: 25px; 
+        }
+        .upload-area:hover { 
+            border-color: #4a90e2; 
+            background: rgba(34, 34, 41, 0.8); 
+        }
+        .upload-area p { margin: 0; font-size: 16px; color: #4a90e2; font-weight: bold; }
+        
+        /* Статусы уведомлений */
+        #status { margin-top: 20px; padding: 12px; border-radius: 6px; display: none; font-size: 14px; font-weight: bold; }
+        .success { background-color: rgba(40, 167, 69, 0.15); color: #52c41a; border: 1px solid rgba(82, 196, 26, 0.3); display: block !important; }
+        .error { background-color: rgba(220, 53, 69, 0.15); color: #ff4d4f; border: 1px solid rgba(255, 77, 79, 0.3); display: block !important; }
+        
+        /* Результаты и текстовое поле */
+        .result-container { margin-top: 25px; display: none; }
+        .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px; }
+        .left-controls { display: flex; align-items: center; gap: 15px; }
+        .copy-btn { background: #4a90e2; color: white; border: none; padding: 8px 16px; cursor: pointer; border-radius: 4px; font-size: 14px; font-weight: bold; transition: background 0.2s; }
+        .copy-btn:hover { background: #357abd; }
+
+        /* Стили для кнопки Римская баллиста */
+        .ballista-btn {
+            display: inline-flex;
+            align-items: center;
+            background: #202024;
+            color: #a6a6b8;
+            border: 1px solid #2f2f38;
+            padding: 6px 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+        .ballista-btn:hover {
+            background: #2f2f38;
+            color: #ffffff;
+            border-color: #4a90e2;
+        }
+        .ballista-btn.active {
+            background: rgba(74, 144, 226, 0.15);
+            color: #4a90e2;
+            border-color: #4a90e2;
+        }
+        .ballista-btn img {
+            width: 24px;
+            height: 24px;
+            margin-right: 8px;
+            object-fit: contain;
+        }
+        
+        textarea { 
+            width: 100%; 
+            height: 380px; 
+            font-family: 'Fira Code', Consolas, Monaco, monospace; 
+            font-size: 14px; 
+            padding: 14px; 
+            background-color: #1a1a1e; 
+            color: #e1e1e6; 
+            border: 1px solid #2f2f38; 
+            border-radius: 6px; 
+            box-sizing: border-box; 
+            resize: vertical; 
+        }
+        textarea:focus { outline: none; border-color: #4a90e2; }
+
+        textarea::-webkit-scrollbar { width: 8px; }
+        textarea::-webkit-scrollbar-track { background: #121214; border-radius: 6px; }
+        textarea::-webkit-scrollbar-thumb { background: #2f2f38; border-radius: 6px; }
+        textarea::-webkit-scrollbar-thumb:hover { background: #3e3e4a; }
+        
+        @media (max-width: 600px) {
+            body { margin-top: 80px; }
+            .tg-button { top: 15px; left: 15px; }
+            .result-header { flex-direction: column; align-items: flex-start; }
+            .left-controls { flex-direction: column; align-items: flex-start; width: 100%; }
+            .copy-btn { width: 100%; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Круглая кнопка Telegram -->
+    <a href="https://t.me" target="_blank" class="tg-button" title="Канал Tiramin">
+        <svg viewBox="0 0 24 24">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.11.02-1.93 1.23-5.46 3.62-.51.35-.98.53-1.39.51-.46-.01-1.35-.26-2.01-.48-.81-.27-1.46-.42-1.4-.88.03-.24.36-.49.99-.74 3.88-1.69 6.47-2.8 7.77-3.32 3.7-1.47 4.46-1.73 4.96-1.74.11 0 .36.03.52.16.14.11.18.26.19.37 0 .07.01.21 0 .33z"/>
+        </svg>
+    </a>
+
+    <h2>RTID's из JSON</h2>
+    <p>Просто загрузите файл (PLANTTYPES / ZOMBITYPES / PROJECTILETYPES). Скрипт сам определит файл, извлечет нужные RTID's и выведет готовый список на экран.</p>
+
+    <!-- Область загрузки с исправленным вызовом input -->
+    <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+        <p>Перетащите JSON-файл сюда или нажмите для выбора</p>
+        <input type="file" id="fileInput" accept=".json" style="display:none">
+    </div>
+
+    <div id="status"></div>
+
+    <div class="result-container" id="resultContainer">
+        <div class="result-header">
+            <div class="left-controls">
+                <strong>Полученный список:</strong>
+                <!-- Кнопка Римская баллиста -->
+                <button class="ballista-btn" id="ballistaBtn" style="display: none;">
+                    <img src="https://pvsz2.ru/statics/zombies-big/176.png" alt="Баллиста">
+                    <span>Римская баллиста</span>
+                </button>
+            </div>
+            <button class="copy-btn" id="copyBtn">Скопировать весь текст</button>
+        </div>
+        <textarea id="outputText" readonly></textarea>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.querySelector('.upload-area');
+        const ballistaBtn = document.getElementById('ballistaBtn');
+
+        let currentExtractedArray = [];
+        let isBallistaMode = false;
+
+        // Обработка обычного выбора файла через проводник
+        fileInput.addEventListener('change', function(e) {
+            handleFiles(e.target.files);
+        });
+
+        // Поддержка перетаскивания файлов (Drag and Drop)
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.style.borderColor = "#4a90e2";
+            this.style.background = "rgba(34, 34, 41, 0.8)";
+        });
+
+        uploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.style.borderColor = "#2f3846";
+            this.style.background = "rgba(26, 26, 30, 0.6)";
+        });
+
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.style.borderColor = "#2f3846";
+            this.style.background = "rgba(26, 26, 30, 0.6)";
+            if (e.dataTransfer.files.length > 0) {
+                handleFiles(e.dataTransfer.files);
+            }
+        });
+
+        // Основная функция обработки
+        function handleFiles(files) {
+            const file = files[0];
+            if (!file) return;
+
+            const statusDiv = document.getElementById('status');
+            const resultContainer = document.getElementById('resultContainer');
+
+            statusDiv.className = "";
+            statusDiv.style.display = "none";
+            resultContainer.style.display = "none";
+            ballistaBtn.style.display = "none";
+            ballistaBtn.classList.remove('active');
+            isBallistaMode = false;
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    let cleanResult = event.target.result.replace(/\/\*[\s\S]*?\*\/|([^\:]|^)\/\/.*$/gm, '$1');
+                    const json = JSON.parse(cleanResult);
+                    
+                    const hasTypeName = checkKeyPresence(json, 'TypeName');
+                    currentExtractedArray = parseData(json, hasTypeName);
+
+                    if (currentExtractedArray.length === 0) {
+                        statusDiv.innerText = "Нужные данные в файле не найдены.";
+                        statusDiv.className = "error";
+                        return;
+                    }
+
+                    // Кнопка появляется ТОЛЬКО если имя файла содержит "zombi" и в файле есть TypeName
+                    const fileNameLower = file.name.toLowerCase();
+                    if (hasTypeName && fileNameLower.includes('zombi')) {
+                        ballistaBtn.style.display = "inline-flex";
+                    }
+                    
+                    renderOutput();
+                    
+                    statusDiv.innerHTML = `Успешно! Распознан файл типа: <strong>${hasTypeName ? 'Растения/Зомби (TypeName)' : 'Снаряды (aliases)'}</strong>. Найдено строк: ${currentExtractedArray.length}`;
+
+                    statusDiv.className = "success";
+                    resultContainer.style.display = "block";
+                    
+                } catch (error) {
+                    statusDiv.innerText = "Ошибка чтения файла. Убедитесь, что это корректный JSON.";
+                    statusDiv.className = "error";
+                    console.error(error);
+                }
+            };
+            reader.readAsText(file);
+            
+            // Сбрасываем значение input, чтобы можно было загружать один и тот же файл повторно
+            fileInput.value = "";
+        }
+
+        function checkKeyPresence(obj, targetKey) {
+            let found = false;
+            function scan(node) {
+                if (found || !node || typeof node !== 'object') return;
+                if (node.hasOwnProperty(targetKey)) { found = true; return; }
+                for (let key in node) { if (node.hasOwnProperty(key)) scan(node[key]); }
+            }
+            scan(obj);
+            return found;
+        }
+
+        // Возвращает массив названий зомби/растений
+        function parseData(obj, isPlantOrZombie) {
+            let results = [];
+            function search(node) {
+                if (!node || typeof node !== 'object') return;
+                if (isPlantOrZombie) {
+                    if (node.hasOwnProperty('TypeName') && typeof node.TypeName === 'string') {
+                        results.push(node.TypeName);
+                    }
+                } else {
+                    if (node.hasOwnProperty('aliases') && Array.isArray(node.aliases)) {
+                        node.aliases.forEach(alias => {
+                            if (typeof alias === 'string') results.push(alias);
+                        });
+                    }
+                }
+                for (let key in node) {
+                    if (node.hasOwnProperty(key)) search(node[key]);
+                }
+            }
+            search(obj);
+            return [...new Set(results)].sort();
+        }
+
+        // Функция рендеринга контента в textarea в зависимости от режима
+        function renderOutput() {
+            const outputText = document.getElementById('outputText');
+            if (isBallistaMode) {
+                // Корректное формирование JSON-структуры объектов с сохранением значений и весом 1
+                const formattedObjects = currentExtractedArray.map(typeName => {
+                    return `{
+  "TypeName": "${typeName}",
+  "Weight": 1
+}`;
+                });
+                outputText.value = formattedObjects.join(",\n");
+            } else {
+                // Обычный построчный список
+                outputText.value = currentExtractedArray.join("\n");
+            }
+        }
+
+        // Обработчик переключения кнопки "Римская баллиста"
+        ballistaBtn.addEventListener('click', function() {
+            isBallistaMode = !isBallistaMode;
+            if (isBallistaMode) {
+                this.classList.add('active');
+            } else {
+                this.classList.remove('active');
+            }
+            renderOutput();
+        });
+
+        document.getElementById('copyBtn').addEventListener('click', function() {
+            const textarea = document.getElementById('outputText');
+            textarea.select();
+            document.execCommand('copy');
+            const originalText = this.innerText;
+            this.innerText = "Скопировано!";
+            this.style.background = "#28a745";
+            setTimeout(() => {
+                this.innerText = originalText;
+                this.style.background = "#4a90e2";
+            }, 2000);
+        });
+    </script>
+</body>
+</html>
