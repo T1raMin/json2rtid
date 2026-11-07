@@ -152,7 +152,7 @@
     </a>
 
     <h2>RTID's из JSON</h2>
-    <p>Просто загрузите файл (PLANTTYPES / ZOMBITYPES / PROJECTILETYPES). Скрипт сам определит файл, извлечет нужные RTID's и выведет готовый список на экран.</p>
+    <p>Просто загрузите файл (PLANTTYPES / ZOMBIETYPES / PROJECTILETYPES / ZOMBIEACTIONS). Скрипт сам определит файл, извлечет нужные RTID's и выведет готовый список на экран.</p>
 
     <!-- Область загрузки с исправленным вызовом input -->
     <div class="upload-area" onclick="document.getElementById('fileInput').click()">
@@ -184,6 +184,25 @@
 
         let currentExtractedArray = [];
         let isBallistaMode = false;
+
+        // Строгий список поддерживаемых имен файлов (без расширения .json)
+        // mode: 'typeName' — сбор ключей TypeName, 'aliases' — сбор массивов aliases
+        const FILE_TYPES = {
+            'PLANTTYPES':      { label: 'Растения',       code: 'PLANTTYPES',      mode: 'typeName', ballista: false },
+            'PlantTypes':      { label: 'Растения',       code: 'PLANTTYPES',      mode: 'typeName', ballista: false },
+            'ZOMBIETYPES':     { label: 'Зомби',          code: 'ZOMBIETYPES',     mode: 'typeName', ballista: true  },
+            'ZombieTypes':     { label: 'Зомби',          code: 'ZOMBIETYPES',     mode: 'typeName', ballista: true  },
+            'PROJECTILETYPES': { label: 'Снаряды',        code: 'PROJECTILETYPES', mode: 'aliases',  ballista: false },
+            'ProjectileTypes': { label: 'Снаряды',        code: 'PROJECTILETYPES', mode: 'aliases',  ballista: false },
+            'ZOMBIEACTIONS':   { label: 'Действия зомби', code: 'ZOMBIEACTIONS',   mode: 'aliases',  ballista: false },
+            'ZombieActions':   { label: 'Действия зомби', code: 'ZOMBIEACTIONS',   mode: 'aliases',  ballista: false }
+        };
+
+        // Возвращает конфиг типа файла по его имени или null, если имя не поддерживается
+        function detectFileType(fileName) {
+            const baseName = fileName.replace(/\.json$/i, '');
+            return Object.prototype.hasOwnProperty.call(FILE_TYPES, baseName) ? FILE_TYPES[baseName] : null;
+        }
 
         // Обработка обычного выбора файла через проводник
         fileInput.addEventListener('change', function(e) {
@@ -226,15 +245,23 @@
             ballistaBtn.style.display = "none";
             ballistaBtn.classList.remove('active');
             isBallistaMode = false;
-            
+
+            // Строгая проверка имени файла
+            const fileType = detectFileType(file.name);
+            if (!fileType) {
+                statusDiv.innerText = "Ошибка: Файл с таким именем не поддерживается скриптом";
+                statusDiv.className = "error";
+                fileInput.value = "";
+                return;
+            }
+
             const reader = new FileReader();
             reader.onload = function(event) {
                 try {
                     let cleanResult = event.target.result.replace(/\/\*[\s\S]*?\*\/|([^\:]|^)\/\/.*$/gm, '$1');
                     const json = JSON.parse(cleanResult);
                     
-                    const hasTypeName = checkKeyPresence(json, 'TypeName');
-                    currentExtractedArray = parseData(json, hasTypeName);
+                    currentExtractedArray = parseData(json, fileType.mode === 'typeName');
 
                     if (currentExtractedArray.length === 0) {
                         statusDiv.innerText = "Нужные данные в файле не найдены.";
@@ -242,15 +269,14 @@
                         return;
                     }
 
-                    // Кнопка появляется ТОЛЬКО если имя файла содержит "zombi" и в файле есть TypeName
-                    const fileNameLower = file.name.toLowerCase();
-                    if (hasTypeName && fileNameLower.includes('zombi')) {
+                    // Кнопка «Римская баллиста» — ТОЛЬКО для ZOMBIETYPES / ZombieTypes
+                    if (fileType.ballista) {
                         ballistaBtn.style.display = "inline-flex";
                     }
-                    
+
                     renderOutput();
-                    
-                    statusDiv.innerHTML = `Успешно! Распознан файл типа: <strong>${hasTypeName ? 'Растения/Зомби (TypeName)' : 'Снаряды (aliases)'}</strong>. Найдено строк: ${currentExtractedArray.length}`;
+
+                    statusDiv.innerHTML = `Успешно! Распознан файл: <strong>${fileType.label} (${fileType.code})</strong>. Найдено строк: ${currentExtractedArray.length}`;
 
                     statusDiv.className = "success";
                     resultContainer.style.display = "block";
@@ -267,18 +293,7 @@
             fileInput.value = "";
         }
 
-        function checkKeyPresence(obj, targetKey) {
-            let found = false;
-            function scan(node) {
-                if (found || !node || typeof node !== 'object') return;
-                if (node.hasOwnProperty(targetKey)) { found = true; return; }
-                for (let key in node) { if (node.hasOwnProperty(key)) scan(node[key]); }
-            }
-            scan(obj);
-            return found;
-        }
-
-        // Возвращает массив названий зомби/растений
+        // Возвращает массив TypeName (растения/зомби) или aliases (снаряды/действия зомби)
         function parseData(obj, isPlantOrZombie) {
             let results = [];
             function search(node) {
